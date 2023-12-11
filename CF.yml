@@ -1,0 +1,91 @@
+Resources:
+
+  ApiGatewayRestApi:
+    Type: AWS::ApiGateway::RestApi
+    Properties:
+      BodyS3Location:
+        Bucket: "lambdas--cfbucket"
+        Key: "swagger.yaml"
+      FailOnWarnings: 'true'
+
+  LambdaFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: "lambdas--cfbucket"
+        S3Key: "search-photos.zip"
+      Description: AWS Lambda function2
+      FunctionName: 'search-photos2'
+      Handler: search-photos2.lambda_handler
+      MemorySize: 256
+      Role: !GetAtt LambdaIamRole.Arn
+      Runtime: python3.7
+      Timeout: 60
+
+  LambdaIamRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: 'Allow'
+            Principal:
+              Service:
+                - 'lambda.amazonaws.com'
+            Action:
+              - 'sts:AssumeRole'
+      Path: '/'
+
+  LambdaFunction2:
+    Type: AWS::Lambda::Function
+    Properties:
+      Code:
+        S3Bucket: "lambdas--cfbucket"
+        S3Key: "index-photos.zip"
+      Description: AWS Lambda function1
+      FunctionName: 'LF12'
+      Handler: LF12.lambda_handler
+      MemorySize: 256
+      Role: !GetAtt LambdaIamRole.Arn
+      Runtime: python3.7
+      Timeout: 60
+    
+  OpenSearchServiceDomain:
+    DeletionPolicy: Retain
+    Type: AWS::Elasticsearch::Domain
+    Properties:
+      AccessPolicies:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            AWS: '*'
+          Action:
+          - 'es:ESHttpGet'
+          Resource: "arn:aws:es:us-east-1:5934891768645:domain/photoscf/*"
+          Condition:
+            IpAddress:
+              aws:SourceIp:
+                - "101.188.67.134"
+                - "67.83.37.19/24"
+                - "67.245.4.63/24"
+      ElasticsearchClusterConfig:
+        DedicatedMasterEnabled: false
+        InstanceCount: 1
+        InstanceType: t3.small.elasticsearch
+        WarmEnabled: false
+        ZoneAwarenessEnabled: false
+      CognitoOptions:
+        Enabled: false
+      DomainName: photoscf2
+      EBSOptions:
+        EBSEnabled: true
+        VolumeSize: '100'
+        VolumeType: 'gp3'
+        Iops: 3000
+      ElasticsearchVersion: "7.10"
+  LexBot:
+    Type: Custom::LexBot
+    Properties:
+      ServiceToken: !GetAtt LexV2CfnCr.Outputs.LexV2CfnCrFunctionArn
+      botName: photosearch
